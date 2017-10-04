@@ -111,11 +111,10 @@ func (p *NsqThrottledProducer) checkNSQDStatus() {
 	statusURL := fmt.Sprintf("http://%s:%d/stats?format=json", p.NSQDHost, p.NSQDHTTPPort)
 	log.Info("monitoring nsqd status", "url", statusURL, "interval", p.DefaultStatusInterval)
 
+	//TODO: re-check the structure code in all aspects.
 	nsqstats := struct {
-		StatusCode int `json:"status_code"`
-		Data       struct {
-			Topics []nsqd.TopicStats `json:"topics"`
-		} `json:"data"`
+		Health string            `json:"health"`
+		Topics []nsqd.TopicStats `json:"topics"`
 	}{}
 
 	dummyChannels := make([]nsqd.ChannelStats, 0)
@@ -134,11 +133,11 @@ func (p *NsqThrottledProducer) checkNSQDStatus() {
 		if err := decoder.Decode(&nsqstats); err != nil {
 			panic(err)
 		}
-		if nsqstats.StatusCode != 200 {
+		if nsqstats.Health != "OK" {
 			panic(fmt.Errorf("bad statuscode"))
 		}
 
-		for _, topicStat := range nsqstats.Data.Topics {
+		for _, topicStat := range nsqstats.Topics {
 			seenTopics[topicStat.TopicName] = dummyStruct
 		}
 		// any known topics that arent seen need to be part of
@@ -152,11 +151,11 @@ func (p *NsqThrottledProducer) checkNSQDStatus() {
 				Channels:  dummyChannels,
 				Depth:     0,
 			}
-			nsqstats.Data.Topics = append(nsqstats.Data.Topics, dummyTopic)
+			nsqstats.Topics = append(nsqstats.Topics, dummyTopic)
 			seenTopics[topic] = dummyStruct
 		}
 
-		for _, topicStat := range nsqstats.Data.Topics {
+		for _, topicStat := range nsqstats.Topics {
 			topic := topicStat.TopicName
 			if _, exists := p.topicThreshold[topic]; !exists {
 				continue
