@@ -6,7 +6,6 @@ import (
 	"github.com/bitly/go-nsq"
 	"github.com/deep-compute/abool"
 	"github.com/deep-compute/log"
-	"github.com/deep-compute/stats"
 	"github.com/nsqio/nsq/nsqd"
 	"net/http"
 	"sync"
@@ -184,7 +183,9 @@ func (p *NsqThrottledProducer) checkNSQDStatus() {
 				)
 				topicFreeBool.UnSet()
 				// time that this topic spent being free.
-				stats.TimingSince(fmt.Sprintf("%s.enabled", topic), p.topicToggledAt[topic])
+				log.Debug(fmt.Sprintf("%s.enabled", topic),
+					"duration", time.Now().Sub(p.topicToggledAt[topic]).Seconds()*1000,
+				)
 				p.topicToggledAt[topic] = time.Now()
 			} else {
 				// if it is already free to take more, continue
@@ -201,7 +202,9 @@ func (p *NsqThrottledProducer) checkNSQDStatus() {
 				topicFreeCond.Broadcast()
 
 				// time that this topic spent being disabled.
-				stats.TimingSince(fmt.Sprintf("%s.disabled", topic), p.topicToggledAt[topic])
+				log.Debug(fmt.Sprintf("%s.disabled", topic),
+					"duration", time.Now().Sub(p.topicToggledAt[topic]).Seconds()*1000,
+				)
 				p.topicToggledAt[topic] = time.Now()
 			}
 		}
@@ -238,12 +241,13 @@ func (p *NsqThrottledProducer) WaitForTopic(topic string) {
 //   }
 //  }
 func (p *NsqThrottledProducer) Publish(topic string, body []byte) error {
-	stats.Incr(fmt.Sprintf("%s.publish", topic), 1)
+	// TODO replace with log incremental
+	//stats.Incr(fmt.Sprintf("%s.publish", topic), 1)
 	if p.topicFreeBool[topic].IsSet() {
 		return p.producer.Publish(topic, body)
 	}
 
-	stats.Incr(fmt.Sprintf("%s.publish.full", topic), 1)
+	//stats.Incr(fmt.Sprintf("%s.publish.full", topic), 1)
 	// cannot publish on topic
 	return p.topicFullError[topic]
 }
@@ -251,12 +255,13 @@ func (p *NsqThrottledProducer) Publish(topic string, body []byte) error {
 // MultiPublish is the same as publish except for multiple messages
 // to the same topic.
 func (p *NsqThrottledProducer) MultiPublish(topic string, bodies [][]byte) error {
-	stats.Incr(fmt.Sprintf("%s.multipublish", topic), 1)
+	// TODO replace with log incremental
+	//stats.Incr(fmt.Sprintf("%s.multipublish", topic), 1)
 	if p.topicFreeBool[topic].IsSet() {
 		return p.producer.MultiPublish(topic, bodies)
 	}
 
-	stats.Incr(fmt.Sprintf("%s.multipublish.full", topic), 1)
+	//stats.Incr(fmt.Sprintf("%s.multipublish.full", topic), 1)
 	// cannot publish on topic
 	return p.topicFullError[topic]
 }
